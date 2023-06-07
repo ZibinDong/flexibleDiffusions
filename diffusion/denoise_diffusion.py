@@ -24,6 +24,7 @@ class DenoiseDiffusion():
         self.T = T
         self.device = device
         self.loss_type = loss_type
+        self.x_shape = None
         
         # uncond mask
         assert (uncond_prob is not None) == eps_model.use_cond
@@ -57,6 +58,7 @@ class DenoiseDiffusion():
         x0: torch.Tensor, 
         cond: Optional[torch.Tensor] = None):
         
+        if self.x_shape is None: self.x_shape = x0.shape[1:]
         batch_size = x0.shape[0]
         t = torch.randint(self.T, (batch_size,), device=self.device)
         

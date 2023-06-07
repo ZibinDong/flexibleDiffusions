@@ -76,7 +76,7 @@ class BasicClassifier(nn.Module):
         else:
             raise ValueError(f'Unknown y_type: {self.y_type}')
     
-    def gradients(self, x: torch.Tensor, t: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
+    def gradients(self, x: torch.Tensor, t: torch.Tensor, y: torch.Tensor):
         x.requires_grad_()
         logp = self.logp(x, t, y)
         grad = torch.autograd.grad([logp.sum()], [x])[0]
