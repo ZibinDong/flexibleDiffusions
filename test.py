@@ -1,9 +1,10 @@
 from models.unet import UNet
+from diffusion import DenoiseDiffusion
 import torch
 
 device = "cuda"
 
-m = UNet(
+eps_model = UNet(
     data_channels=3,
     n_channels=16,
     time_channels=16,
@@ -16,9 +17,19 @@ m = UNet(
     n_blocks=2,
 ).to(device)
 
+diffusion = DenoiseDiffusion(
+    eps_model=eps_model,
+    uncond_prob=0.25,
+    T=1000,
+    device=device,
+    beta_schedule="cosine",
+    s=0.008,
+)
+
 x = torch.randn((1, 3, 32, 32), device=device)
-t = torch.randint(1000, (1,), device=device)
 cond = torch.randn((1, 5), device=device)
 
-y = m(x, t, cond)
+loss = diffusion.loss(x, cond)
+
+print(diffusion.eps_model)
 

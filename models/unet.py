@@ -3,7 +3,7 @@ from typing import List, Optional, Tuple, Union
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
+import json
 import utils
 
 # ============================================ Components of UNet ==============================================
@@ -145,6 +145,10 @@ class UNet(nn.Module):
     ):
         super().__init__()
         n_resolutions = len(ch_mults)
+        self.n_channels = n_channels
+        self.ch_mults = ch_mults
+        self.use_attn = use_attn
+        self.use_norm = use_norm
         
         conv = utils.choose_conv(tensor_dim)
         
@@ -195,6 +199,18 @@ class UNet(nn.Module):
         # self.norm = nn.GroupNorm(n_groups, out_channels)
         self.act = nn.Mish()
         self.final = conv(out_channels, data_channels, 3, padding=1)
+        
+    def __repr__(self):
+        n_params = utils.count_parameters(self)
+        info = {
+            "type": "UNet",
+            "n_channels": self.n_channels,
+            "ch_mults": self.ch_mults,
+            "use_attn": self.use_attn,
+            "use_norm": self.use_norm,
+            "n_params": utils.abbreviate_number(n_params),
+        }
+        return json.dumps(info)
         
     def forward(self, x: torch.Tensor, t: torch.Tensor, cond: Optional[torch.Tensor] = None) -> torch.Tensor:
         '''
