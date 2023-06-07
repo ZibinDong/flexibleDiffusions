@@ -1,3 +1,4 @@
+import json
 from typing import Iterable, List, Optional, Union
 
 import torch
@@ -29,12 +30,24 @@ class DDIMSampler(BasicSampler):
         else:
             raise ValueError(f'Unknown ddim_discretize: {ddim_discretize}')
         
+        self.ddim_eta = ddim_eta
+        self.ddim_sample_steps = ddim_sample_steps
+        self.ddim_discretize = ddim_discretize
+        
         self.sigma = ddim_eta * ((1-self.alphas_bar_prev)/(1-self.alphas_bar)).sqrt() * (1-self.alphas_bar/self.alphas_bar_prev).sqrt()
         
         self.coeff1 = self.alphas_bar_prev.sqrt()
         self.coeff2 = (1 - self.alphas_bar_prev - self.sigma**2).sqrt()
         self.coeff3 = self.sigma
         self.guidance_coeff = (1 - self.alphas_bar).sqrt()
+        
+    def __repr__(self):
+        param = json.loads(super().__repr__())
+        param["name"] = "DDIM sampler"
+        param["ddim_eta"] = self.ddim_eta
+        param["ddim_sample_steps"] = self.ddim_sample_steps
+        param["ddim_discretize"] = self.ddim_discretize
+        return json.dumps(param)
         
     def p_xtm1_xt(self, 
         xt: torch.Tensor, t: int,

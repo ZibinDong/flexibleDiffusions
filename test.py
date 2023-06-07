@@ -1,9 +1,15 @@
 from models.unet import UNet
 from diffusion import DenoiseDiffusion
 from classifiers import HalfUNetClassifier
+from samplers import DDIMSampler
 import torch
 
 device = "cuda"
+
+x = torch.randn((1, 3, 32, 32), device=device)
+t = torch.randint(1000, (1,), device=device)
+y = torch.randint(10, (1,), device=device)
+cond = torch.randn((1, 5), device=device)
 
 eps_model = UNet(
     data_channels=3,
@@ -19,6 +25,9 @@ eps_model = UNet(
     n_blocks=2,
 ).to(device)
 
+print("[eps_model]", end="")
+print(eps_model)
+
 diffusion = DenoiseDiffusion(
     eps_model=eps_model,
     uncond_prob=0.25,
@@ -27,6 +36,11 @@ diffusion = DenoiseDiffusion(
     beta_schedule="cosine",
     s=0.008,
 )
+
+loss = diffusion.loss(x, cond)
+
+print("[diffusion]", end="")
+print(diffusion)
 
 classifier = HalfUNetClassifier(
     data_channels=3,
@@ -43,10 +57,28 @@ classifier = HalfUNetClassifier(
     n_categories=10,
 ).to(device)
 
-x = torch.randn((1, 3, 32, 32), device=device)
-t = torch.randint(1000, (1,), device=device)
-y = torch.randint(10, (1,), device=device)
+logp, grad = classifier.gradients(x, t, y)
 
-loss = classifier.loss(x, t, y)
-grad = classifier.gradients(x, t, y)
+print("[classifier]", end="")
+print(classifier)
 
+sampler = DDIMSampler(
+    diffusion=diffusion,
+    ddim_eta=0.0,
+    ddim_sample_steps=20,
+    ddim_discretize="quad",
+    classifier=classifier,
+)
+
+print("[sampler]", end="")
+print(sampler)
+
+
+y = torch.randint(10, (10,), device=device)
+cond = torch.randn((10, 5), device=device)
+
+sampled_x, logp = sampler.sample(
+    n_samples=10,
+    y=y,
+    cond=cond,
+)

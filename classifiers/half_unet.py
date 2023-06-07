@@ -1,3 +1,4 @@
+import json
 from typing import List, Optional, Tuple, Union
 
 import torch
@@ -55,6 +56,15 @@ class HalfUNetClassifier(BasicClassifier):
         self.down = nn.ModuleList(down)
         self.flatten = nn.Flatten()
         self.final = None
+        
+    def __repr__(self):
+        return json.dumps({
+            "name": "HalfUNet",
+            "n_channels": self.n_channels,
+            "ch_mults": self.ch_mults,
+            "use_attn": self.use_attn,
+            "use_norm": self.use_norm,
+        })
         
     def forward(self, x: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
         '''

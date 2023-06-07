@@ -1,3 +1,4 @@
+import json
 from typing import Optional
 
 import torch
@@ -25,6 +26,7 @@ class DenoiseDiffusion():
         self.device = device
         self.loss_type = loss_type
         self.x_shape = None
+        self.beta_schedule = beta_schedule
         
         # uncond mask
         assert (uncond_prob is not None) == eps_model.use_cond
@@ -43,6 +45,15 @@ class DenoiseDiffusion():
         self.alphas = 1 - self.betas
         self.alphas_bar = torch.cumprod(self.alphas, dim=0)
         self.alphas_bar_prev = torch.cat([torch.ones(1, device=device), self.alphas_bar[:-1]])
+        
+    def __repr__(self):
+        return json.dumps({
+            "name": "Denoise Diffusion",
+            "T": self.T,
+            "loss_type": self.loss_type,
+            "beta_schedule": self.beta_schedule,
+            "use_cond": self.eps_model.use_cond,
+        })
         
     def q_xt_x0(self, x0: torch.Tensor, t: torch.Tensor) -> torch.Tensor:
         ''' forward process q(x_t|x_0) '''

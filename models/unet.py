@@ -202,15 +202,14 @@ class UNet(nn.Module):
         
     def __repr__(self):
         n_params = utils.count_parameters(self)
-        info = {
-            "type": "UNet",
+        return json.dumps({
+            "name": "UNet",
             "n_channels": self.n_channels,
             "ch_mults": self.ch_mults,
             "use_attn": self.use_attn,
             "use_norm": self.use_norm,
             "n_params": utils.abbreviate_number(n_params),
-        }
-        return json.dumps(info)
+        })
         
     def forward(self, x: torch.Tensor, t: torch.Tensor, cond: Optional[torch.Tensor] = None) -> torch.Tensor:
         '''

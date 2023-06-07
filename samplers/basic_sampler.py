@@ -1,3 +1,4 @@
+import json
 from typing import Iterable, Optional
 
 import torch
@@ -27,6 +28,15 @@ class BasicSampler():
         
         self.use_cg_guidance = classifier is not None
         self.use_cf_guidance = diffusion.eps_model.use_cond
+        
+    def __repr__(self):
+        return json.dumps({
+            "name": "Basic sampler",
+            "use_classifier_guided_guidance": self.use_cg_guidance,
+            "use_classifier_free_guidance": self.use_cf_guidance,
+            "classifier_guided_strength": self.cg_strength,
+            "classifier_free_strength": self.cf_strength,
+        })
         
     def predict_eps(self,
         xt: torch.Tensor, t: torch.Tensor,

@@ -6,7 +6,7 @@ from classifiers.basic_classifier import BasicClassifier
 from diffusion.denoise_diffusion import DenoiseDiffusion
 
 from .basic_sampler import BasicSampler
-
+import json
 
 class DDPMSampler(BasicSampler):
     def __init__(self,
@@ -21,6 +21,11 @@ class DDPMSampler(BasicSampler):
         
         self.xt_coeffs = 1 / self.alphas.sqrt()
         self.eps_coeffs = self.betas / (1 - self.alphas_bar).sqrt() * self.xt_coeffs
+        
+    def __repr__(self):
+        param = json.loads(super().__repr__())
+        param["name"] = "DDPM sampler"
+        return json.dumps(param)
         
     def p_xtm1_xt(self, 
         xt: torch.Tensor, t: int,
