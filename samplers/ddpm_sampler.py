@@ -38,7 +38,7 @@ class DDPMSampler(BasicSampler):
         eps = self.predict_eps(xt, batch_t, cond)
         logp, classifier_guidance = self.calculate_gradient_guidance(xt, batch_t, y)
         
-        mean = self.xt_coeffs[t] * xt + self.eps_coeffs[t] * eps
+        mean = self.xt_coeffs[t] * xt - self.eps_coeffs[t] * eps
         std = self.stds[t]
         
         mean += (std**2) * classifier_guidance

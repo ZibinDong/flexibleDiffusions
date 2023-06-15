@@ -4,7 +4,7 @@ from classifiers import HalfUNetClassifier
 from samplers import DDIMSampler
 import torch
 
-device = "cuda"
+device = "cuda:7"
 
 x = torch.randn((1, 3, 32, 32), device=device)
 t = torch.randint(1000, (1,), device=device)

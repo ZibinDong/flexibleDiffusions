@@ -78,12 +78,15 @@ class BasicSampler():
     ) -> torch.Tensor:
         raise NotImplementedError
     
+    @torch.no_grad()
     def sample(self, 
         n_samples: int, t_seq: Iterable[int],
         y: Optional[torch.Tensor] = None, cond: Optional[torch.Tensor] = None,
         inpainting_mask: Optional[torch.Tensor] = None, inpainting_value: Optional[torch.Tensor] = None,
         save_denoise_history: bool = False,
     ):
+        self.diffusion.eps_model.eval()
+        
         if save_denoise_history: denoise_history = []
         
         xt = torch.randn((n_samples, *self.diffusion.x_shape), device=self.diffusion.device)
@@ -101,5 +104,6 @@ class BasicSampler():
             xt = self.apply_inpainting_condition(xt, inpainting_mask, inpainting_value)
             
             if save_denoise_history: denoise_history.append(torch.clone(xt))
-        
+            
+        self.diffusion.eps_model.train()
         return xt, logp

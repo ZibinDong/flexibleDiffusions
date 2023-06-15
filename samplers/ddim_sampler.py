@@ -34,12 +34,14 @@ class DDIMSampler(BasicSampler):
         self.ddim_sample_steps = ddim_sample_steps
         self.ddim_discretize = ddim_discretize
         
-        self.sigma = ddim_eta * ((1-self.alphas_bar_prev)/(1-self.alphas_bar)).sqrt() * (1-self.alphas_bar/self.alphas_bar_prev).sqrt()
+        self.ddim_alphas = self.alphas_bar[self.sample_t_array]
+        self.ddim_alphas_prev = torch.cat([self.ddim_alphas[:1], self.ddim_alphas[:-1]])
+        self.sigma = ddim_eta * ((1-self.ddim_alphas_prev)/(1-self.ddim_alphas)).sqrt() * (1-self.ddim_alphas/self.ddim_alphas_prev).sqrt()
         
-        self.coeff1 = self.alphas_bar_prev.sqrt()
-        self.coeff2 = (1 - self.alphas_bar_prev - self.sigma**2).sqrt()
+        self.coeff1 = self.ddim_alphas_prev.sqrt()
+        self.coeff2 = (1 - self.ddim_alphas_prev - self.sigma**2).sqrt()
         self.coeff3 = self.sigma
-        self.guidance_coeff = (1 - self.alphas_bar).sqrt()
+        self.guidance_coeff = (1 - self.ddim_alphas).sqrt()
         
     def __repr__(self):
         param = json.loads(super().__repr__())
@@ -55,14 +57,14 @@ class DDIMSampler(BasicSampler):
         cond: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
         
-        batch_t = torch.ones((xt.shape[0],), device=xt.device, dtype=torch.long) * t
+        batch_t = torch.ones((xt.shape[0],), device=xt.device, dtype=torch.long) * self.sample_t_array[t]
         
         eps = self.predict_eps(xt, batch_t, cond)
         logp, classifier_guidance = self.calculate_gradient_guidance(xt, batch_t, y)
         eps -= self.guidance_coeff[t] * classifier_guidance
         
         mean = (
-            self.coeff1[t] * (xt - self.guidance_coeff[t] * eps)/self.alphas_bar[t].sqrt() +
+            self.coeff1[t] * (xt - self.guidance_coeff[t] * eps)/self.ddim_alphas[t].sqrt() +
             self.coeff2[t] * eps
         )
         std = self.coeff3[t]
@@ -76,7 +78,7 @@ class DDIMSampler(BasicSampler):
         save_denoise_history: bool = False,
     ):
         return super().sample(
-            n_samples, self.sample_t_array,
+            n_samples, range(self.ddim_sample_steps),
             y, cond, inpainting_mask, inpainting_value,
             save_denoise_history,
         )
