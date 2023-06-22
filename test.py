@@ -1,4 +1,5 @@
 from models.unet import UNet
+from models.dit import DiT2d
 from diffusion import DenoiseDiffusion
 from classifiers import HalfUNetClassifier
 from samplers import DDIMSampler

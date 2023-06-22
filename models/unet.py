@@ -1,10 +1,13 @@
+import json
 from typing import List, Optional, Tuple, Union
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import json
+
 import utils
+
+from .eps_model import EpsModel
 
 # ============================================ Components of UNet ==============================================
 
@@ -126,7 +129,7 @@ class Downsample(nn.Module):
     
 # ============================================ UNet Model ==============================================
 
-class UNet(nn.Module):
+class UNet(EpsModel):
     def __init__(self,
         data_channels: int = 3,
         
@@ -140,6 +143,8 @@ class UNet(nn.Module):
         ch_mults: Union[Tuple[int,...], List[int]] = (1, 2, 2, 4),
         use_attn: Union[Tuple[bool,...], List[int]] = (False, False, True, True),
         use_norm: Union[Tuple[bool,...], List[int]] = (True, True, True, True),
+        use_attn_in_middle_block: bool = True,
+        use_norm_in_middle_block: bool = True,
         n_heads: int = 1,
         n_blocks: int = 2,
     ):
@@ -163,6 +168,9 @@ class UNet(nn.Module):
             )
             time_channels *= 2
         
+        ch_mults = [1] + list(ch_mults)
+        ch_mults = [ch_mults[i+1]/ch_mults[i] for i in range(n_resolutions)]
+
         up, down = [], []
         out_channels = in_channels = n_channels
         for i in range(n_resolutions):
@@ -193,7 +201,8 @@ class UNet(nn.Module):
         
         self.down = nn.ModuleList(down)
         self.mid = MiddleBlock(
-            mid_channels, time_channels, n_groups, tensor_dim, True, True, n_heads)
+            mid_channels, time_channels, n_groups, tensor_dim, 
+            use_norm_in_middle_block, use_attn_in_middle_block, n_heads)
         self.up = nn.ModuleList(up)
         
         # self.norm = nn.GroupNorm(n_groups, out_channels)
@@ -236,4 +245,5 @@ class UNet(nn.Module):
             x = torch.cat([x, h.pop()], dim=1) if not isinstance(m, Upsample) else x
             x = m(x, t)
         
-        return self.final(self.act(x)) 
+        return self.final(self.act(x))
+    

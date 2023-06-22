@@ -45,12 +45,12 @@ class TimeEmbedding(nn.Module):
         super().__init__()
         self.n_channels = n_channels
         self.mlp = nn.Sequential(
-            nn.Linear(n_channels // 4, n_channels),
+            nn.Linear(n_channels, n_channels),
             nn.Mish(),
             nn.Linear(n_channels, n_channels),
         )
     def forward(self, t: torch.Tensor):
-        half_dim = self.n_channels // 8
+        half_dim = self.n_channels // 2
         emb = math.log(10_000) / (half_dim - 1)
         emb = torch.exp(torch.arange(half_dim, device=t.device) * -emb)
         emb = t[:, None] * emb[None, :]

@@ -63,13 +63,21 @@ class BasicSampler():
         
     def apply_inpainting_condition(self,
         xt: torch.Tensor,
+        t: int = 0,
         inpainting_mask: Optional[torch.Tensor] = None,
         inpainting_value: Optional[torch.Tensor] = None,
+        noisy_inpainting: bool = False,
     ):
+        if hasattr(self, "sample_t_array"): t = self.sample_t_array[t]
         if inpainting_mask is None or inpainting_value is None:
             return xt
-        else:
+        elif t == 0 or not noisy_inpainting:
             return xt * (1 - inpainting_mask) + inpainting_mask * inpainting_value
+        else:
+            return xt * (1 - inpainting_mask) + inpainting_mask * (
+                self.alphas_bar[t].sqrt() * inpainting_value +
+                (1-self.alphas_bar[t]).sqrt() * torch.randn_like(xt)
+            )
 
     def p_xtm1_xt(self, 
         xt: torch.Tensor, t: torch.Tensor,
@@ -83,14 +91,36 @@ class BasicSampler():
         n_samples: int, t_seq: Iterable[int],
         y: Optional[torch.Tensor] = None, cond: Optional[torch.Tensor] = None,
         inpainting_mask: Optional[torch.Tensor] = None, inpainting_value: Optional[torch.Tensor] = None,
+        noisy_inpainting: bool = False,
         save_denoise_history: bool = False,
     ):
+        ''' Sample from the diffusion model.
+        
+        Args:
+            - n_samples: number of samples to generate
+            - t_seq: sequence of timesteps to sample at
+            - y: torch.Tensor of shape (n_samples, 1). If provided, the classifier will be used to guide the sampling process.
+            - cond: torch.Tensor of shape (n_samples, cond_dim). If provided, the conditional diffusion model will be used.
+            - inpainting_mask: torch.Tensor of shape (1, *x_shape). If provided, the inpainting mask will be applied to the samples.
+                It is supposed to be a binary mask with 1s indicating the masked out regions.
+            - inpainting_value: torch.Tensor of shape (1, *x_shape). If provided, the inpainting mask will be applied to the samples.
+                It is supposed to be a tensor of the same shape as the samples.
+            - noisy_inpainting: If True, the inpainting will be done in a noisy manner according to the forward diffusion process. 
+                If False, the masked out regions will be directly filled with inpainting_value.
+            - save_denoise_history: If True, the denoised samples at each timestep will be saved and returned.
+
+        Returns:
+            - xt: torch.Tensor of shape (n_samples, *x_shape). The generated samples.
+            - logp: torch.Tensor of shape (n_samples,). The log-probability of the generated samples. Only returned if y is provided.
+            - denoise_history: List[torch.Tensor] of length len(t_seq). The denoised samples at each timestep. Only returned if save_denoise_history is True.
+
+        '''
         self.diffusion.eps_model.eval()
         
         if save_denoise_history: denoise_history = []
         
         xt = torch.randn((n_samples, *self.diffusion.x_shape), device=self.diffusion.device)
-        xt = self.apply_inpainting_condition(xt, inpainting_mask, inpainting_value)
+        xt = self.apply_inpainting_condition(xt, t_seq[-1], inpainting_mask, inpainting_value, noisy_inpainting)
         
         for i in reversed(t_seq):
             
@@ -101,9 +131,48 @@ class BasicSampler():
             else:
                 xt = mean
                 
-            xt = self.apply_inpainting_condition(xt, inpainting_mask, inpainting_value)
+            xt = self.apply_inpainting_condition(xt, i, inpainting_mask, inpainting_value, noisy_inpainting)
             
             if save_denoise_history: denoise_history.append(torch.clone(xt))
             
         self.diffusion.eps_model.train()
-        return xt, logp
+        return xt, logp, denoise_history if save_denoise_history else None
+
+    # TODO: Trajectory planning for decision making, which may preserve history observations.
+    # @torch.no_grad()
+    # def plan_trajectories(self,
+    #     obs: torch.Tensor, n_samples: int, t_seq: Iterable[int],
+    #     cond: torch.Tensor,
+    #     inpainting_mask: Optional[torch.Tensor] = None, inpainting_value: Optional[torch.Tensor] = None, ptr: int = 0,
+    #     max_history_len: int = 20,
+    # ):
+    #     '''
+    #     Input:
+    #         - obs: torch.Tensor of shape (1, observation_dim)
+    #         - n_samples: number of samples to generate
+    #         - cond: torch.Tensor of shape (1, cond_dim)
+    #         - inpainting_mask: torch.Tensor of shape (1, seq_len, observation_dim)
+    #         - inpainting_value: torch.Tensor of shape (1, seq_len, observation_dim)
+        
+    #     Output:
+    #         - trajs: torch.Tensor of shape (n_samples, seq_len, observation_dim)
+    #         - inpainting_mask: torch.Tensor of shape (1, seq_len, observation_dim)
+    #         - inpainting_value: torch.Tensor of shape (1, seq_len, observation_dim)
+    #     '''
+    #     cond = cond.repeat(n_samples, 1)
+        
+    #     if inpainting_mask is None or inpainting_value is None:
+    #         inpainting_mask = torch.zeros((1, *self.diffusion.x_shape), device=self.diffusion.device)
+    #         inpainting_value = torch.zeros((1, *self.diffusion.x_shape), device=self.diffusion.device)
+            
+    #     inpainting_mask[0, ptr] = 1
+    #     inpainting_value[0, ptr, :] = obs[0]
+    #     reach_max_history_len = ((ptr == max_history_len) or max_history_len == 0)
+        
+    #     trajs, _ = self.sample(n_samples, t_seq, cond=cond, inpainting_mask=inpainting_mask, inpainting_value=inpainting_value)
+        
+    #     if reach_max_history_len:
+    #         inpainting_mask = torch.cat([inpainting_mask[:,1:], inpainting_mask[:,-1:]], dim=1)
+    #         inpainting_value = torch.cat([inpainting_value[:,1:], inpainting_value[:,-1:]], dim=1)
+
+    #     return trajs, inpainting_mask, inpainting_value, min(ptr+1, max_history_len)
