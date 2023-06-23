@@ -1,1 +1,1 @@
-import scripts.toy_example
+import scripts.toy_example_dit

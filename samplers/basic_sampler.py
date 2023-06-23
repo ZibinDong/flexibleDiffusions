@@ -3,6 +3,7 @@ from typing import Iterable, Optional
 
 import torch
 
+import utils
 from classifiers.basic_classifier import BasicClassifier
 from diffusion.denoise_diffusion import DenoiseDiffusion
 
@@ -38,6 +39,7 @@ class BasicSampler():
             "classifier_free_strength": self.cf_strength,
         })
         
+    @torch.no_grad()
     def predict_eps(self,
         xt: torch.Tensor, t: torch.Tensor,
         cond: Optional[torch.Tensor] = None,
@@ -86,7 +88,6 @@ class BasicSampler():
     ) -> torch.Tensor:
         raise NotImplementedError
     
-    @torch.no_grad()
     def sample(self, 
         n_samples: int, t_seq: Iterable[int],
         y: Optional[torch.Tensor] = None, cond: Optional[torch.Tensor] = None,
@@ -115,28 +116,32 @@ class BasicSampler():
             - denoise_history: List[torch.Tensor] of length len(t_seq). The denoised samples at each timestep. Only returned if save_denoise_history is True.
 
         '''
-        self.diffusion.eps_model.eval()
+        # unfreeze_list = []
+        # if isinstance(self.classifier, BasicClassifier): unfreeze_list.append(self.classifier)
         
-        if save_denoise_history: denoise_history = []
-        
-        xt = torch.randn((n_samples, *self.diffusion.x_shape), device=self.diffusion.device)
-        xt = self.apply_inpainting_condition(xt, t_seq[-1], inpainting_mask, inpainting_value, noisy_inpainting)
-        
-        for i in reversed(t_seq):
+        # with utils.UnfreezeModules(unfreeze_list):
+        with utils.EvalModules([self.diffusion.eps_model]):
             
-            mean, std, logp = self.p_xtm1_xt(xt, i, y, cond)
+            if save_denoise_history: denoise_history = []
             
-            if i != 0:
-                xt = mean + std * torch.randn_like(mean)
-            else:
-                xt = mean
+            xt = torch.randn((n_samples, *self.diffusion.x_shape), device=self.diffusion.device)
+            xt = self.apply_inpainting_condition(xt, t_seq[-1], inpainting_mask, inpainting_value, noisy_inpainting)
+            
+            for i in reversed(t_seq):
                 
-            xt = self.apply_inpainting_condition(xt, i, inpainting_mask, inpainting_value, noisy_inpainting)
-            
-            if save_denoise_history: denoise_history.append(torch.clone(xt))
-            
-        self.diffusion.eps_model.train()
-        return xt, logp, denoise_history if save_denoise_history else None
+                mean, std, logp = self.p_xtm1_xt(xt, i, y, cond)
+                
+                if i != 0:
+                    xt = mean + std * torch.randn_like(mean)
+                else:
+                    xt = mean
+                    
+                xt = xt.detach()
+                xt = self.apply_inpainting_condition(xt, i, inpainting_mask, inpainting_value, noisy_inpainting)
+                
+                if save_denoise_history: denoise_history.append(torch.clone(xt))
+
+            return xt, logp, denoise_history if save_denoise_history else None
 
     # TODO: Trajectory planning for decision making, which may preserve history observations.
     # @torch.no_grad()

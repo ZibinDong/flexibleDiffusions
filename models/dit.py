@@ -1,3 +1,4 @@
+import json
 import math
 from typing import Optional
 
@@ -89,6 +90,8 @@ class DiT(EpsModel):
     ) -> None:
         super().__init__()
         self.hidden_size = hidden_size
+        self.n_heads = n_heads
+        self.depth = depth
         
         self.x_embedder: nn.Module
         self.t_embedder = utils.TimeEmbedding(hidden_size)
@@ -105,6 +108,15 @@ class DiT(EpsModel):
             DiTBlock(hidden_size, n_heads, mlp_ratio=mlp_ratio) for _ in range(depth)
         ])
         self.final_layer: nn.Module
+        
+    def __repr__(self):
+        cfg = {
+            "name": "DiT",
+            "hidden_size": self.hidden_size,
+            "n_heads": self.n_heads,
+            "depth": self.depth,
+        }
+        return json.dumps(cfg)
         
     def initialize_weights(self):
         # Initialize transformer layers:
@@ -166,6 +178,7 @@ class DiT1d(DiT):
         depth: int = 28,
     ):
         super().__init__(hidden_size, cond_dim, n_heads, mlp_ratio, depth)
+        self.input_size = input_size
         self.seq_len = seq_len
         
         self.x_embedder = nn.Sequential(
@@ -176,6 +189,14 @@ class DiT1d(DiT):
         
         self.final_layer = Finallayer1d(hidden_size, input_size)
         self.initialize_weights()
+        
+    def __repr__(self):
+        cfg = json.loads(super().__repr__())
+        cfg["name"] = "DiT1d"
+        cfg["seq_len"] = self.seq_len
+        cfg["input_size"] = self.input_size
+        cfg["n_params"] = utils.abbreviate_number(utils.count_parameters(self))
+        return json.dumps(cfg)
     
     def initialize_weights(self):
         super().initialize_weights()
@@ -198,6 +219,7 @@ class DiT2d(DiT):
     ):
         super().__init__(hidden_size, cond_dim, n_heads, mlp_ratio, depth)
         self.data_channels = data_channels
+        self.patch_size = patch_size
         
         self.x_embedder = PatchEmbed(
             input_size, patch_size, data_channels, hidden_size
@@ -209,6 +231,14 @@ class DiT2d(DiT):
 
         self.final_layer = FinalLayer2d(hidden_size, patch_size, data_channels)
         self.initialize_weights()
+        
+    def __repr__(self):
+        cfg = json.loads(super().__repr__())
+        cfg["name"] = "DiT2d"
+        cfg["data_channels"] = self.data_channels
+        cfg["patch_size"] = self.patch_size
+        cfg["n_params"] = utils.abbreviate_number(utils.count_parameters(self))
+        return json.dumps(cfg)
 
     def initialize_weights(self):
         super().initialize_weights()

@@ -12,18 +12,28 @@ t = torch.randint(1000, (1,), device=device)
 y = torch.randint(10, (1,), device=device)
 cond = torch.randn((1, 5), device=device)
 
-eps_model = UNet(
-    data_channels=3,
-    n_channels=16,
-    time_channels=16,
+# eps_model = UNet(
+#     data_channels=3,
+#     n_channels=16,
+#     time_channels=16,
+#     cond_dim=5,
+#     tensor_dim=2,
+#     n_groups=1,
+#     ch_mults=(1, 2),
+#     use_attn=(False, True),
+#     use_norm=(True, True),
+#     n_heads=1,
+#     n_blocks=2,
+# ).to(device)
+
+eps_model = DiT2d(
+    input_size=32,
+    patch_size=2,
     cond_dim=5,
-    tensor_dim=2,
-    n_groups=1,
-    ch_mults=(1, 2),
-    use_attn=(False, True),
-    use_norm=(True, True),
-    n_heads=1,
-    n_blocks=2,
+    data_channels=3,
+    hidden_size=384,
+    n_heads=6,
+    depth=12,
 ).to(device)
 
 print("[eps_model]", end="")
@@ -78,7 +88,7 @@ print(sampler)
 y = torch.randint(10, (10,), device=device)
 cond = torch.randn((10, 5), device=device)
 
-sampled_x, logp = sampler.sample(
+sampled_x, logp, denoise_history = sampler.sample(
     n_samples=10,
     y=y,
     cond=cond,
