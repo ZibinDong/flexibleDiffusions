@@ -1,1 +1,1 @@
-# flexibleDiffusions:A modular diffusion framework supporting multiple dimensions
+# flexibleDiffusions: A modular diffusion framework
