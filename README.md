@@ -1,1 +1,1 @@
-# flexibleDiffusions: A modular diffusion framework
+# FlexibleDiffusions
